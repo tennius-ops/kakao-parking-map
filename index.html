@@ -180,11 +180,20 @@
 
   <!-- 지도 영역 -->
   <div id="map-container">
+    <!-- 도메인 미등록 안내 배너 -->
     <div id="key-warning">
       ⚠️ <b>카카오 지도를 불러오지 못했어요!</b><br>
-      카카오 개발자 사이트(<a href="https://developers.kakao.com" target="_blank">developers.kakao.com</a>)의<br>
-      <b>[내 애플리케이션] ➡️ [플랫폼] ➡️ [Web]</b>에<br>
-      사이트 도메인 <code>http://localhost:3000</code>을 등록해 주셨는지 확인해 주세요!
+      <span style="font-weight: normal; font-size: 14px;">
+        카카오에서 <b>"도메인이 등록되지 않았습니다(domain mismatched)"</b>라고 알려왔어요.<br>
+        카카오 개발자 사이트(<a href="https://developers.kakao.com" target="_blank" style="color: #0056b3; text-decoration: underline;">developers.kakao.com</a>)의<br>
+        <b>[내 애플리케이션] ➡️ [앱 설정] ➡️ [플랫폼] ➡️ [Web]</b>에 아래 주소를 등록해 주세요!
+      </span>
+      <div style="margin-top: 10px; background: #fff; padding: 8px; border-radius: 6px; border: 1px dashed #e0a800; font-family: monospace; font-size: 14px; user-select: all;" id="current-domain-box">
+        https://kakao-parking-map.vercel.app
+      </div>
+      <button onclick="location.reload()" style="margin-top: 8px; padding: 6px 16px; background: #2b3a4a; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+        🔄 등록 후 새로고침
+      </button>
     </div>
     <div id="map"></div>
   </div>
@@ -226,7 +235,12 @@
     window.onload = function() {
       // 카카오 맵 로드 검사
       if (typeof kakao === 'undefined' || !kakao.maps) {
-        document.getElementById('key-warning').style.display = 'block';
+        const warning = document.getElementById('key-warning');
+        const domainBox = document.getElementById('current-domain-box');
+        if (warning) warning.style.display = 'block';
+        if (domainBox && window.location.origin) {
+          domainBox.innerText = window.location.origin;
+        }
         return;
       }
 
