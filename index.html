@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🚗 깜빡 방지! 내 주차 & 위치 찰칵 지도</title>
+
+  <!-- 카카오 SDK 불러오기 -->
+  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2d2664c43ce944e15a942c713f56abd7&libraries=services"></script>
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+    }
+
+    body {
+      background-color: #f4f6f9;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 상단 큰 글씨 헤더 */
+    header {
+      background: #2b3a4a;
+      color: #ffffff;
+      padding: 16px 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    header h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      font-size: 15px;
+      color: #b0c4de;
+      margin-top: 4px;
+    }
+
+    /* 지도 영역 */
+    #map-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 키 미입력 안내 배너 */
+    #key-warning {
+      display: none;
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      background: #fff3cd;
+      color: #856404;
+      border: 2px solid #ffeeba;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      z-index: 100;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* 하단 컨트롤 패널 (시니어 친화적 큰 버튼) */
+    .control-panel {
+      background: #ffffff;
+      padding: 16px 20px 24px;
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 저장 상태 알림 박스 */
+    .status-card {
+      background: #eef5ff;
+      border: 1.5px solid #c8e1ff;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 16px;
+      color: #1e3a8a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-card span.time {
+      font-weight: 800;
+      color: #2563eb;
+    }
+
+    /* 큰 버튼 공통 스타일 */
+    .btn {
+      width: 100%;
+      height: 58px;
+      border: none;
+      border-radius: 14px;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    /* 저장 버튼 (초록색) */
+    .btn-save {
+      background: #10b981;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    /* 카카오톡 전송 버튼 (노란색) */
+    .btn-kakao {
+      background: #fee500;
+      color: #3c1e1e;
+      box-shadow: 0 4px 12px rgba(254, 229, 0, 0.4);
+    }
+
+    /* 길찾기 버튼 (파란색) */
+    .btn-route {
+      background: #3b82f6;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .button-group-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* 커스텀 오버레이 (지도 위에 크게 보이는 말풍선) */
+    .custom-marker-tag {
+      background: #ef4444;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      border: 2px solid #ffffff;
+      white-space: nowrap;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 상단 제목 -->
+  <header>
+    <h1>🚗 내 차 어디 뒀더라?</h1>
+    <p>버튼 한 번만 누르면 주차 위치를 기억해요!</p>
+  </header>
+
+  <!-- 지도 영역 -->
+  <div id="map-container">
+    <div id="key-warning">
+      ⚠️ <b>카카오 지도를 불러오지 못했어요!</b><br>
+      카카오 개발자 사이트(<a href="https://developers.kakao.com" target="_blank">developers.kakao.com</a>)의<br>
+      <b>[내 애플리케이션] ➡️ [플랫폼] ➡️ [Web]</b>에<br>
+      사이트 도메인 <code>http://localhost:3000</code>을 등록해 주셨는지 확인해 주세요!
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <!-- 하단 버튼 패널 -->
+  <div class="control-panel">
+    <!-- 상태 안내 -->
+    <div class="status-card" id="status-display">
+      <span>📍 아직 저장된 주차 위치가 없어요.</span>
+    </div>
+
+    <!-- 1. 큰 글씨 위치 저장 버튼 -->
+    <button class="btn btn-save" onclick="saveCurrentLocation()">
+      📍 지금 위치 주차 자리로 저장!
+    </button>
+
+    <div class="button-group-row">
+      <!-- 2. 카카오톡 전송 버튼 -->
+      <button class="btn btn-kakao" onclick="shareToKakao()">
+        💬 카톡으로 보내기
+      </button>
+
+      <!-- 3. 카카오맵 길찾기 버튼 -->
+      <a id="btn-find-car" class="btn btn-route" href="#" target="_blank" style="display: none;">
+        🚶 차 찾으러 가기
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // 카카오 SDK 초기화
+    const KAKAO_KEY = "2d2664c43ce944e15a942c713f56abd7";
+
+    let map = null;
+    let currentMarker = null;
+    let savedLocation = null;
+
+    // 1. 페이지 열릴 때 실행
+    window.onload = function() {
+      // 카카오 맵 로드 검사
+      if (typeof kakao === 'undefined' || !kakao.maps) {
+        document.getElementById('key-warning').style.display = 'block';
+        return;
+      }
+
+      // 카카오 SDK 초기화
+      if (KAKAO_KEY && typeof Kakao !== 'undefined') {
+        if (!Kakao.isInitialized()) {
+          Kakao.init(KAKAO_KEY);
+        }
+      }
+
+      // 기본 지도 생성 (기본값: 서울시청)
+      const container = document.getElementById('map');
+      const options = {
+        center: new kakao.maps.LatLng(37.566826, 126.9786567),
+        level: 3
+      };
+      map = new kakao.maps.Map(container, options);
+
+      // 지도 컨트롤러 (확대/축소 버튼 달기)
+      const zoomControl = new kakao.maps.ZoomControl();
+      map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+
+      // 기존에 저장해 둔 위치가 있다면 불러오기
+      loadSavedLocation();
+
+      // 현재 GPS 위치로 지도 이동
+      moveToCurrentLocation();
+    };
+
+    // 2. 현재 내 위치로 지도 중심 옮기기
+    function moveToCurrentLocation() {
+      if (navigator.geolocation && map) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const currentPos = new kakao.maps.LatLng(lat, lon);
+          map.setCenter(currentPos);
+        }, function(error) {
+          console.log("위치 정보를 가져올 수 없습니다:", error);
+        });
+      }
+    }
+
+    // 3. [📍 지금 위치 주차 자리로 저장!] 버튼 눌렀을 때
+    function saveCurrentLocation() {
+      if (!navigator.geolocation) {
+        alert("성원오빠, 스마트폰의 위치(GPS) 기능을 켜주세요!");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const now = new Date();
+        const timeString = `${now.getHours()}시 ${now.getMinutes()}분`;
+
+        savedLocation = {
+          lat: lat,
+          lon: lon,
+          time: timeString
+        };
+
+        // 로컬 브라우저에 저장 (앱을 껐다 켜도 안 지워져요!)
+        localStorage.setItem("my_car_location", JSON.stringify(savedLocation));
+
+        // 지도에 깃발 꽂기
+        displaySavedMarker(lat, lon, timeString);
+
+        alert(`🎉 주차 위치가 저장되었어요!\n저장 시간: ${timeString}`);
+      }, function(err) {
+        alert("현재 위치를 찾지 못했어요. 위치 권한을 '허용'해 주세요!");
+      });
+    }
+
+    // 4. 지도에 깃발과 말풍선 띄우기
+    function displaySavedMarker(lat, lon, time) {
+      if (!map) return;
+
+      const locPosition = new kakao.maps.LatLng(lat, lon);
+
+      // 기존 마커 지우기
+      if (currentMarker) {
+        currentMarker.setMap(null);
+      }
+
+      // 새 마커와 커스텀 말풍선 달기
+      const content = `<div class="custom-marker-tag">🚗 내 차 주차 자리! (${time})</div>`;
+      currentMarker = new kakao.maps.CustomOverlay({
+        map: map,
+        position: locPosition,
+        content: content,
+        yAnchor: 1.5
+      });
+
+      map.setCenter(locPosition);
+
+      // 상태 안내창 업데이트
+      const statusBox = document.getElementById("status-display");
+      statusBox.innerHTML = `<span>🚗 <b>주차 위치 저장 완료!</b> (<span class="time">${time}</span>)</span>`;
+
+      // 길찾기 버튼 활성화 (카카오맵 길찾기 웹 링크로 바로 연결!)
+      const routeBtn = document.getElementById("btn-find-car");
+      routeBtn.style.display = "flex";
+      routeBtn.href = `https://map.kakao.com/link/to/내차주차위치,${lat},${lon}`;
+    }
+
+    // 5. 저장된 위치 다시 불러오기
+    function loadSavedLocation() {
+      const data = localStorage.getItem("my_car_location");
+      if (data) {
+        const parsed = JSON.parse(data);
+        savedLocation = parsed;
+        displaySavedMarker(parsed.lat, parsed.lon, parsed.time);
+      }
+    }
+
+    // 6. [💬 카톡으로 보내기] 버튼 눌렀을 때 (카카오톡 공유 / 나와의 채팅방)
+    function shareToKakao() {
+      if (!savedLocation) {
+        alert("성원오빠! 먼저 [지금 위치 주차 자리로 저장] 버튼을 눌러주세요!");
+        return;
+      }
+
+      if (typeof Kakao === 'undefined' || !Kakao.isInitialized()) {
+        alert("카카오 JavaScript 키를 index.html 파일에 넣어주셔야 카카오톡 전송이 가능해요!");
+        return;
+      }
+
+      // 카카오톡 메시지 보내기
+      const mapUrl = `https://map.kakao.com/link/to/내차주차위치,${savedLocation.lat},${savedLocation.lon}`;
+      
+      Kakao.Share.sendDefault({
+        objectType: 'text',
+        text: `[🚗 내 차 주차 알림]\n성원오빠, 차를 여기에 세워두셨어요!\n⏰ 저장 시간: ${savedLocation.time}\n\n아래 링크를 누르면 카카오맵으로 길을 바로 안내해 드려요!`,
+        link: {
+          mobileWebUrl: mapUrl,
+          webUrl: mapUrl
+        }
+      });
+    }
+  </script>
+</body>
+</html>
